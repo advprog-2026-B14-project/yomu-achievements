@@ -1,4 +1,4 @@
-name: CI/CD Pipeline - Yomu Achievements
+name: CI/CD Pipeline - Achievements Module to AWS ECR
 
 on:
   push:
@@ -21,11 +21,15 @@ jobs:
           distribution: "temurin"
 
       - name: 3. Run Unit Tests (TDD Safeguard)
-        run: ./gradlew test
+        run: |
+          chmod +x gradlew
+          ./gradlew test
         # Kalau test gagal, pipeline akan STOP di sini. Aman!
 
       - name: 4. Build JAR
-        run: ./gradlew clean bootJar
+        run: |
+          chmod +x gradlew
+          ./gradlew clean bootJar
 
       - name: 5. Configure AWS Credentials
         # Step 5-7 hanya jalan kalau di branch main (bukan pas PR)
