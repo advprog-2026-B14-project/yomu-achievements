@@ -1,5 +1,5 @@
 # Gunakan image Java 21 bawaan Linux mini (Alpine)
-FROM eclipse-temurin:21-jdk-alpine
+FROM eclipse-temurin:21-jdk-alpine@sha256:bcc7ec7e8fef937ba9f01ee5f810361d722c6b5dbe19ac188ab7b25c1a4dd2c9
 
 # Bikin folder kerja di dalam container
 WORKDIR /app
