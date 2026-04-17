@@ -3,7 +3,7 @@ package id.ac.ui.cs.advprog.yomuachievement.model;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
-import java.util.Date;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
@@ -30,9 +30,8 @@ public class UserDailyMission {
     @Column(name = "is_completed")
     private Boolean isCompleted = false;
 
-    @Column(name = "tanggal")
-    @Temporal(TemporalType.DATE)
-    private Date tanggal = new Date(); // Otomatis nyimpen tanggal hari ini
+    @Column(name = "tanggal_selesai")
+    private LocalDateTime tanggalSelesai;
 
     public UserDailyMission() {}
 }

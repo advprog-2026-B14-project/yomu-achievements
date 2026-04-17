@@ -18,8 +18,8 @@ public class DailyMission {
     @Column(name = "nama_misi", nullable = false, unique = true)
     private String namaMisi;
 
-    @Column(name = "target", nullable = false)
-    private Integer target;
+    @Column(name = "milestone_target", nullable = false)
+    private Integer milestoneTarget;
 
     @Column(name = "poin_reward", nullable = false)
     private Integer poinReward;

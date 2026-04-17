@@ -1,25 +1,37 @@
 package id.ac.ui.cs.advprog.yomuachievement.controller;
 
-import id.ac.ui.cs.advprog.yomuachievement.model.Achievement;
 import id.ac.ui.cs.advprog.yomuachievement.service.AchievementService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.web.bind.annotation.CrossOrigin;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @RestController
-@RequestMapping("/api/achievements")
-@CrossOrigin(origins = "http://localhost:3000")
+@RequestMapping("/api/internal") // Kita gunakan /internal sesuai rencana milestone kamu
 public class AchievementController {
 
     @Autowired
     private AchievementService achievementService;
 
-    @GetMapping
-    public List<Achievement> getAllAchievements() {
-        return achievementService.findAllAchievements();
+    // Endpoint untuk update progres Achievement
+    @PostMapping("/progress/achievement")
+    public ResponseEntity<String> updateAchievementProgress(@RequestBody Map<String, Object> payload) {
+        String userId = (String) payload.get("userId");
+        UUID achievementId = UUID.fromString((String) payload.get("achievementId"));
+
+        achievementService.updateAchievementProgress(userId, achievementId);
+        return ResponseEntity.ok("Progres achievement berhasil diperbarui");
+    }
+
+    // Endpoint untuk update progres Misi Harian
+    @PostMapping("/progress/mission")
+    public ResponseEntity<String> updateMissionProgress(@RequestBody Map<String, Object> payload) {
+        String userId = (String) payload.get("userId");
+        UUID missionId = UUID.fromString((String) payload.get("missionId"));
+
+        achievementService.updateMissionProgress(userId, missionId);
+        return ResponseEntity.ok("Progres misi berhasil diperbarui");
     }
 }

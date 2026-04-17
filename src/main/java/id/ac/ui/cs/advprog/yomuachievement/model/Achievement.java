@@ -15,17 +15,23 @@ public class Achievement {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(name = "nama", nullable = false, unique = true)
+    @Column(name = "name", nullable = false, unique = true)
     private String nama;
 
-    @Column(name = "deskripsi", columnDefinition = "TEXT")
+    @Column(name = "description", columnDefinition = "TEXT")
     private String deskripsi;
 
-    @Column(name = "milestone")
-    private Integer milestone = 0; // Default 0
+    @Column(name = "milestone_target", nullable=false)
+    private Integer milestoneTarget = 0; // Default 0
 
     @Column(name = "poin_reward")
     private Integer poinReward = 0; // Default 0
+
+    @Column(name = "milestone_type", nullable = false)
+    private String milestoneType;
+
+    @Column(name = "badge_url", columnDefinition = "TEXT")
+    private String badgeUrl;
 
     public Achievement() {}
 }
