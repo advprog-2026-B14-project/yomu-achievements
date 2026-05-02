@@ -1,13 +1,29 @@
-# Gunakan image Java 21 bawaan Linux mini (Alpine)
-FROM eclipse-temurin:21-jdk-alpine@sha256:bcc7ec7e8fef937ba9f01ee5f810361d722c6b5dbe19ac188ab7b25c1a4dd2c9
-
-# Bikin folder kerja di dalam container
+# ==========================================
+# TAHAP 1: BUILD (Membuat file .jar)
+# ==========================================
+FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /app
 
-# Copy file .jar hasil build Spring Boot ke dalam container
-COPY build/libs/*SNAPSHOT.jar app.jar
+# Copy seluruh source code dari GitHub ke dalam container
+COPY . .
 
-# Buka port 8083 sesuai application.properties kamu
+# Beri hak akses agar script gradlew bisa dieksekusi
+RUN chmod +x ./gradlew
+
+# Jalankan perintah build untuk menghasilkan file .jar (tanpa menjalankan test)
+RUN ./gradlew clean build -x test
+
+# ==========================================
+# TAHAP 2: RUN (Menjalankan aplikasi)
+# ==========================================
+# Kita pakai JRE (Java Runtime Environment) agar ukuran server lebih ringan
+FROM eclipse-temurin:21-jre-alpine
+WORKDIR /app
+
+# Ambil HANYA file .jar yang sudah jadi dari Tahap 1
+COPY --from=build /app/build/libs/*SNAPSHOT.jar app.jar
+
+# Buka port 8083 sesuai application.properties
 EXPOSE 8083
 
 # Perintah untuk menjalankan aplikasinya
