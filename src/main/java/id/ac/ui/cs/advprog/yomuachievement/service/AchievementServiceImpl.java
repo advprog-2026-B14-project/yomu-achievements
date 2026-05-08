@@ -97,17 +97,10 @@ public class AchievementServiceImpl implements AchievementService {
                 .orElseGet(() -> {
                     UserGamificationStat newStat = new UserGamificationStat();
                     newStat.setUserId(userId);
-                    newStat.setTotalPoints(0);
-                    newStat.setLevel(1);
                     return newStat;
                 });
 
-        stat.setTotalPoints(stat.getTotalPoints() + pointReward);
-        
-        // Formula: Level = (totalPoints / 100) + 1
-        int newLevel = (stat.getTotalPoints() / 100) + 1;
-        stat.setLevel(newLevel);
-
+        stat.addPoints(pointReward);
         userGamificationStatRepository.save(stat);
     }
 }
