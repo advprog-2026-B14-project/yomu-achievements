@@ -383,4 +383,9 @@ class AchievementServiceImplTest {
         assertEquals(0, profile.getTotalPoints());
         assertTrue(profile.getPinnedAchievements().isEmpty());
     }
+    @Test
+    void testResetAllDailyMissions() {
+        achievementService.resetAllDailyMissions();
+        verify(userDailyMissionRepository, times(1)).deleteAll();
+    }
 }
