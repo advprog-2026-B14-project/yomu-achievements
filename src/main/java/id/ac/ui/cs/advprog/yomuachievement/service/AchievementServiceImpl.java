@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -103,6 +104,18 @@ public class AchievementServiceImpl implements AchievementService {
 
         if (!userRecord.getIsUnlocked()) {
             throw new RuntimeException("Hanya achievement yang sudah terbuka yang bisa di-pin");
+        }
+
+        Optional<UserAchievement> existingPinned = userAchievementRepository
+            .findByUserIdAndIsPinnedTrueOrderByPinOrderAsc(userId).stream()
+            .filter(ua -> ua.getPinOrder().equals(pinOrder))
+            .findFirst();
+
+        if (existingPinned.isPresent()) {
+            UserAchievement oldPinned = existingPinned.get();
+            oldPinned.setIsPinned(false);
+            oldPinned.setPinOrder(null);
+            userAchievementRepository.save(oldPinned);
         }
 
         userRecord.setIsPinned(true);
