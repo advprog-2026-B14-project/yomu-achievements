@@ -1,5 +1,7 @@
 package id.ac.ui.cs.advprog.yomuachievement.service;
 
+import id.ac.ui.cs.advprog.yomuachievement.dto.PinnedAchievementDto;
+import id.ac.ui.cs.advprog.yomuachievement.dto.UserProfileResponse;
 import id.ac.ui.cs.advprog.yomuachievement.model.*;
 import id.ac.ui.cs.advprog.yomuachievement.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -7,6 +9,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class AchievementServiceImpl implements AchievementService {
@@ -31,6 +34,7 @@ public class AchievementServiceImpl implements AchievementService {
         return achievementRepository.findAll();
     }
 
+    @Override
     public void updateAchievementProgress(String userId, UUID achievementId) {
         Achievement master = achievementRepository.findById(achievementId)
                 .orElseThrow(() -> new RuntimeException("Achievement tidak ditemukan"));
@@ -59,6 +63,7 @@ public class AchievementServiceImpl implements AchievementService {
         }
     }
 
+    @Override
     public void updateMissionProgress(String userId, UUID missionId) {
         DailyMission master = dailyMissionRepository.findById(missionId)
                 .orElseThrow(() -> new RuntimeException("Misi tidak ditemukan"));
@@ -103,6 +108,38 @@ public class AchievementServiceImpl implements AchievementService {
         userRecord.setIsPinned(true);
         userRecord.setPinOrder(pinOrder);
         userAchievementRepository.save(userRecord);
+    }
+
+    @Override
+    public UserProfileResponse getUserProfile(String userId) {
+        UserGamificationStat stat = userGamificationStatRepository.findById(userId)
+                .orElseGet(() -> {
+                    UserGamificationStat newStat = new UserGamificationStat();
+                    newStat.setUserId(userId);
+                    newStat.setTotalPoints(0);
+                    newStat.setLevel(1);
+                    return newStat;
+                });
+
+        List<UserAchievement> pinned = userAchievementRepository.findByUserIdAndIsPinnedTrueOrderByPinOrderAsc(userId);
+
+        List<PinnedAchievementDto> pinnedDtos = pinned.stream()
+                .map(ua -> PinnedAchievementDto.builder()
+                        .id(ua.getAchievement().getId())
+                        .nama(ua.getAchievement().getNama())
+                        .deskripsi(ua.getAchievement().getDeskripsi())
+                        .milestoneTarget(ua.getAchievement().getMilestoneTarget())
+                        .poinReward(ua.getAchievement().getPoinReward())
+                        .pinOrder(ua.getPinOrder())
+                        .build())
+                .collect(Collectors.toList());
+
+        return UserProfileResponse.builder()
+                .userId(userId)
+                .level(stat.getLevel())
+                .totalPoints(stat.getTotalPoints())
+                .pinnedAchievements(pinnedDtos)
+                .build();
     }
 
     /**

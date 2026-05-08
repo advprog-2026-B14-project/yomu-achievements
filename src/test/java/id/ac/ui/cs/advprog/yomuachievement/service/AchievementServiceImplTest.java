@@ -1,5 +1,6 @@
 package id.ac.ui.cs.advprog.yomuachievement.service;
 
+import id.ac.ui.cs.advprog.yomuachievement.dto.UserProfileResponse;
 import id.ac.ui.cs.advprog.yomuachievement.model.*;
 import id.ac.ui.cs.advprog.yomuachievement.repository.*;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -335,5 +338,49 @@ class AchievementServiceImplTest {
         });
 
         assertEquals("Record UserAchievement tidak ditemukan", exception.getMessage());
+    }
+
+    @Test
+    void testGetUserProfile_Success() {
+        String userId = "user-123";
+        UserGamificationStat stat = new UserGamificationStat();
+        stat.setUserId(userId);
+        stat.setTotalPoints(250);
+        stat.setLevel(3);
+
+        Achievement a1 = new Achievement();
+        a1.setId(UUID.randomUUID());
+        a1.setNama("Achievement 1");
+
+        UserAchievement ua1 = new UserAchievement();
+        ua1.setAchievement(a1);
+        ua1.setPinOrder(1);
+        ua1.setIsPinned(true);
+
+        when(userGamificationStatRepository.findById(userId)).thenReturn(Optional.of(stat));
+        when(userAchievementRepository.findByUserIdAndIsPinnedTrueOrderByPinOrderAsc(userId))
+                .thenReturn(List.of(ua1));
+
+        UserProfileResponse profile = achievementService.getUserProfile(userId);
+
+        assertEquals(userId, profile.getUserId());
+        assertEquals(3, profile.getLevel());
+        assertEquals(250, profile.getTotalPoints());
+        assertEquals(1, profile.getPinnedAchievements().size());
+        assertEquals("Achievement 1", profile.getPinnedAchievements().get(0).getNama());
+    }
+
+    @Test
+    void testGetUserProfile_NoStat_DefaultValues() {
+        String userId = "new-user";
+        when(userGamificationStatRepository.findById(userId)).thenReturn(Optional.empty());
+        when(userAchievementRepository.findByUserIdAndIsPinnedTrueOrderByPinOrderAsc(userId))
+                .thenReturn(new ArrayList<>());
+
+        UserProfileResponse profile = achievementService.getUserProfile(userId);
+
+        assertEquals(1, profile.getLevel());
+        assertEquals(0, profile.getTotalPoints());
+        assertTrue(profile.getPinnedAchievements().isEmpty());
     }
 }
