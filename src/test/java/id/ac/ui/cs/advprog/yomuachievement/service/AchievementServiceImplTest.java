@@ -4,6 +4,7 @@ import id.ac.ui.cs.advprog.yomuachievement.model.*;
 import id.ac.ui.cs.advprog.yomuachievement.repository.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -29,6 +30,9 @@ class AchievementServiceImplTest {
 
     @Mock
     private UserDailyMissionRepository userDailyMissionRepository;
+
+    @Mock
+    private UserGamificationStatRepository userGamificationStatRepository;
 
     @InjectMocks
     private AchievementServiceImpl achievementService;
@@ -58,6 +62,7 @@ class AchievementServiceImplTest {
         DailyMission master = new DailyMission();
         master.setId(missionId);
         master.setMilestoneTarget(5);
+        master.setPoinReward(50);
 
         when(dailyMissionRepository.findById(missionId)).thenReturn(Optional.of(master));
         when(userDailyMissionRepository.findByUserIdAndMissionId(userId, missionId)).thenReturn(Optional.empty());
@@ -75,21 +80,34 @@ class AchievementServiceImplTest {
         Achievement master = new Achievement();
         master.setId(achievementId);
         master.setMilestoneTarget(5);
+        master.setPoinReward(150);
 
         UserAchievement existingRecord = new UserAchievement();
         existingRecord.setUserId(userId);
         existingRecord.setAchievement(master);
-        existingRecord.setCurrentProgress(4); // Kurang 1 untuk unlock
+        existingRecord.setCurrentProgress(4);
         existingRecord.setIsUnlocked(false);
+
+        UserGamificationStat existingStat = new UserGamificationStat();
+        existingStat.setUserId(userId);
+        existingStat.setTotalPoints(50);
+        existingStat.setLevel(1);
 
         when(achievementRepository.findById(achievementId)).thenReturn(Optional.of(master));
         when(userAchievementRepository.findByUserIdAndAchievementId(userId, achievementId)).thenReturn(Optional.of(existingRecord));
+        when(userGamificationStatRepository.findById(userId)).thenReturn(Optional.of(existingStat));
 
         achievementService.updateAchievementProgress(userId, achievementId);
 
-        assertTrue(existingRecord.getIsUnlocked()); // Pastikan berubah jadi true
+        assertTrue(existingRecord.getIsUnlocked());
         assertNotNull(existingRecord.getTanggalDidapat());
-        verify(userAchievementRepository, times(1)).save(existingRecord);
+        
+        // Verify Stat Update: 50 + 150 = 200 pts. Level: (200/100) + 1 = 3
+        assertEquals(200, existingStat.getTotalPoints());
+        assertEquals(3, existingStat.getLevel());
+        
+        verify(userAchievementRepository).save(existingRecord);
+        verify(userGamificationStatRepository).save(existingStat);
     }
 
     @Test
@@ -100,21 +118,65 @@ class AchievementServiceImplTest {
         DailyMission master = new DailyMission();
         master.setId(missionId);
         master.setMilestoneTarget(5);
+        master.setPoinReward(75);
 
         UserDailyMission existingRecord = new UserDailyMission();
         existingRecord.setUserId(userId);
         existingRecord.setMission(master);
-        existingRecord.setProgress(4); // Kurang 1 untuk complete
+        existingRecord.setProgress(4);
         existingRecord.setIsCompleted(false);
+
+        UserGamificationStat existingStat = new UserGamificationStat();
+        existingStat.setUserId(userId);
+        existingStat.setTotalPoints(20);
+        existingStat.setLevel(1);
 
         when(dailyMissionRepository.findById(missionId)).thenReturn(Optional.of(master));
         when(userDailyMissionRepository.findByUserIdAndMissionId(userId, missionId)).thenReturn(Optional.of(existingRecord));
+        when(userGamificationStatRepository.findById(userId)).thenReturn(Optional.of(existingStat));
 
         achievementService.updateMissionProgress(userId, missionId);
 
-        assertTrue(existingRecord.getIsCompleted()); // Pastikan berubah jadi true
+        assertTrue(existingRecord.getIsCompleted());
         assertNotNull(existingRecord.getTanggalSelesai());
-        verify(userDailyMissionRepository, times(1)).save(existingRecord);
+
+        // Verify Stat Update: 20 + 75 = 95 pts. Level: (95/100) + 1 = 1
+        assertEquals(95, existingStat.getTotalPoints());
+        assertEquals(1, existingStat.getLevel());
+
+        verify(userDailyMissionRepository).save(existingRecord);
+        verify(userGamificationStatRepository).save(existingStat);
+    }
+
+    @Test
+    void testUpdateAchievementProgress_TriggerUnlock_NewStat() {
+        UUID achievementId = UUID.randomUUID();
+        String userId = "new-user";
+
+        Achievement master = new Achievement();
+        master.setId(achievementId);
+        master.setMilestoneTarget(1);
+        master.setPoinReward(120);
+
+        UserAchievement existingRecord = new UserAchievement();
+        existingRecord.setUserId(userId);
+        existingRecord.setAchievement(master);
+        existingRecord.setCurrentProgress(0);
+        existingRecord.setIsUnlocked(false);
+
+        when(achievementRepository.findById(achievementId)).thenReturn(Optional.of(master));
+        when(userAchievementRepository.findByUserIdAndAchievementId(userId, achievementId)).thenReturn(Optional.of(existingRecord));
+        when(userGamificationStatRepository.findById(userId)).thenReturn(Optional.empty());
+
+        achievementService.updateAchievementProgress(userId, achievementId);
+
+        ArgumentCaptor<UserGamificationStat> statCaptor = ArgumentCaptor.forClass(UserGamificationStat.class);
+        verify(userGamificationStatRepository).save(statCaptor.capture());
+        
+        UserGamificationStat savedStat = statCaptor.getValue();
+        assertEquals(userId, savedStat.getUserId());
+        assertEquals(120, savedStat.getTotalPoints()); // 0 + 120
+        assertEquals(2, savedStat.getLevel()); // (120/100) + 1 = 2
     }
 
     @Test
@@ -169,6 +231,7 @@ class AchievementServiceImplTest {
 
         assertEquals(5, existingRecord.getCurrentProgress()); 
         verify(userAchievementRepository, never()).save(any());
+        verify(userGamificationStatRepository, never()).save(any());
     }
 
     @Test
@@ -193,6 +256,7 @@ class AchievementServiceImplTest {
 
         assertEquals(5, existingRecord.getProgress()); 
         verify(userDailyMissionRepository, never()).save(any());
+        verify(userGamificationStatRepository, never()).save(any());
     }
 
     @Test
