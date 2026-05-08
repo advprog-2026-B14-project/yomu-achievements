@@ -52,4 +52,21 @@ class AchievementControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(content().string("Progres misi berhasil diperbarui"));
     }
+
+    @Test
+    void testPinAchievement() throws Exception {
+        String payload = """
+                {
+                  "userId": "user-123",
+                  "achievementId": "550e8400-e29b-41d4-a716-446655440000",
+                  "pinOrder": 1
+                }
+                """;
+
+        mockMvc.perform(post("/api/achievements/pin")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(payload))
+                .andExpect(status().isOk())
+                .andExpect(content().string("Achievement berhasil di-pin"));
+    }
 }
