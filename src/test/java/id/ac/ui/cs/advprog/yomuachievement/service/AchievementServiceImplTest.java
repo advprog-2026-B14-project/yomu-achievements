@@ -264,4 +264,76 @@ class AchievementServiceImplTest {
         achievementService.findAllAchievements();
         verify(achievementRepository, times(1)).findAll();
     }
+
+    @Test
+    void testPinAchievement_Success() {
+        String userId = "user-123";
+        UUID achievementId = UUID.randomUUID();
+        int pinOrder = 1;
+
+        UserAchievement existingRecord = new UserAchievement();
+        existingRecord.setUserId(userId);
+        existingRecord.setIsUnlocked(true);
+
+        when(userAchievementRepository.findByUserIdAndAchievementId(userId, achievementId))
+                .thenReturn(Optional.of(existingRecord));
+
+        achievementService.pinAchievement(userId, achievementId, pinOrder);
+
+        assertTrue(existingRecord.getIsPinned());
+        assertEquals(pinOrder, existingRecord.getPinOrder());
+        verify(userAchievementRepository, times(1)).save(existingRecord);
+    }
+
+    @Test
+    void testPinAchievement_NotUnlocked() {
+        String userId = "user-123";
+        UUID achievementId = UUID.randomUUID();
+
+        UserAchievement existingRecord = new UserAchievement();
+        existingRecord.setUserId(userId);
+        existingRecord.setIsUnlocked(false);
+
+        when(userAchievementRepository.findByUserIdAndAchievementId(userId, achievementId))
+                .thenReturn(Optional.of(existingRecord));
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            achievementService.pinAchievement(userId, achievementId, 1);
+        });
+
+        assertEquals("Hanya achievement yang sudah terbuka yang bisa di-pin", exception.getMessage());
+        verify(userAchievementRepository, never()).save(any());
+    }
+
+    @Test
+    void testPinAchievement_InvalidPinOrder() {
+        String userId = "user-123";
+        UUID achievementId = UUID.randomUUID();
+
+        // Testing outside 1-3 range
+        assertThrows(IllegalArgumentException.class, () -> {
+            achievementService.pinAchievement(userId, achievementId, 0);
+        });
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            achievementService.pinAchievement(userId, achievementId, 4);
+        });
+        
+        verify(userAchievementRepository, never()).save(any());
+    }
+
+    @Test
+    void testPinAchievement_NotFound() {
+        String userId = "user-123";
+        UUID achievementId = UUID.randomUUID();
+
+        when(userAchievementRepository.findByUserIdAndAchievementId(userId, achievementId))
+                .thenReturn(Optional.empty());
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
+            achievementService.pinAchievement(userId, achievementId, 1);
+        });
+
+        assertEquals("Record UserAchievement tidak ditemukan", exception.getMessage());
+    }
 }
