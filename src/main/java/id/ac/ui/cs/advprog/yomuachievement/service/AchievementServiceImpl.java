@@ -5,6 +5,7 @@ import id.ac.ui.cs.advprog.yomuachievement.dto.UserProfileResponse;
 import id.ac.ui.cs.advprog.yomuachievement.model.*;
 import id.ac.ui.cs.advprog.yomuachievement.repository.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -153,6 +154,12 @@ public class AchievementServiceImpl implements AchievementService {
                 .totalPoints(stat.getTotalPoints())
                 .pinnedAchievements(pinnedDtos)
                 .build();
+    }
+
+    @Override
+    @Scheduled(cron = "0 0 0 * * ?")
+    public void resetAllDailyMissions() {
+        userDailyMissionRepository.deleteAll();
     }
 
     /**

@@ -11,4 +11,5 @@ public interface AchievementService {
     void updateMissionProgress(String userId, UUID missionId);
     void pinAchievement(String userId, UUID achievementId, Integer pinOrder);
     UserProfileResponse getUserProfile(String userId);
+    void resetAllDailyMissions();
 }
