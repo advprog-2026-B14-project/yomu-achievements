@@ -1,6 +1,7 @@
 package id.ac.ui.cs.advprog.yomuachievement.controller;
 
 import id.ac.ui.cs.advprog.yomuachievement.dto.PinAchievementRequest;
+import id.ac.ui.cs.advprog.yomuachievement.dto.UserProfileResponse;
 import id.ac.ui.cs.advprog.yomuachievement.service.AchievementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -41,5 +42,11 @@ public class AchievementController {
     public ResponseEntity<String> pinAchievement(@RequestBody PinAchievementRequest request) {
         achievementService.pinAchievement(request.getUserId(), request.getAchievementId(), request.getPinOrder());
         return ResponseEntity.ok("Achievement berhasil di-pin");
+    }
+
+    // Endpoint untuk Get User Gamification Profile
+    @GetMapping("/achievements/profile/{userId}")
+    public ResponseEntity<UserProfileResponse> getUserProfile(@PathVariable String userId) {
+        return ResponseEntity.ok(achievementService.getUserProfile(userId));
     }
 }
