@@ -22,4 +22,9 @@ public class UserGamificationStat {
     private Integer level = 1;
 
     public UserGamificationStat() {}
+
+    public void addPoints(int points) {
+        this.totalPoints += points;
+        this.level = (this.totalPoints / 100) + 1;
+    }
 }

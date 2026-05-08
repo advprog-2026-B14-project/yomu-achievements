@@ -23,12 +23,13 @@ public class AchievementServiceImpl implements AchievementService {
     @Autowired
     private UserDailyMissionRepository userDailyMissionRepository;
 
+    @Autowired
+    private UserGamificationStatRepository userGamificationStatRepository;
+
     @Override
     public List<Achievement> findAllAchievements() {
         return achievementRepository.findAll();
     }
-
-    // --- LOGIKA UTAMA MILESTONE 50% ---
 
     public void updateAchievementProgress(String userId, UUID achievementId) {
         Achievement master = achievementRepository.findById(achievementId)
@@ -47,10 +48,12 @@ public class AchievementServiceImpl implements AchievementService {
         if (!userRecord.getIsUnlocked()) {
             userRecord.setCurrentProgress(userRecord.getCurrentProgress() + 1);
             
-            // Cek Auto-Unlock: Jika progres >= target di tabel master
             if (userRecord.getCurrentProgress() >= master.getMilestoneTarget()) { 
                 userRecord.setIsUnlocked(true);
                 userRecord.setTanggalDidapat(LocalDateTime.now());
+                
+                // Distribusi Poin & Leveling
+                distributePointsAndLevelUp(userId, master.getPoinReward());
             }
             userAchievementRepository.save(userRecord);
         }
@@ -73,12 +76,31 @@ public class AchievementServiceImpl implements AchievementService {
         if (!userRecord.getIsCompleted()) {
             userRecord.setProgress(userRecord.getProgress() + 1);
             
-            // Cek Auto-Unlock: Jika progres >= target
             if (userRecord.getProgress() >= master.getMilestoneTarget()) { 
                 userRecord.setIsCompleted(true);
                 userRecord.setTanggalSelesai(LocalDateTime.now());
+
+                // Distribusi Poin & Leveling
+                distributePointsAndLevelUp(userId, master.getPoinReward());
             }
             userDailyMissionRepository.save(userRecord);
         }
+    }
+
+    /**
+     * Helper method to handle Point Distribution and Leveling logic.
+     */
+    private void distributePointsAndLevelUp(String userId, Integer pointReward) {
+        if (pointReward == null) pointReward = 0;
+
+        UserGamificationStat stat = userGamificationStatRepository.findById(userId)
+                .orElseGet(() -> {
+                    UserGamificationStat newStat = new UserGamificationStat();
+                    newStat.setUserId(userId);
+                    return newStat;
+                });
+
+        stat.addPoints(pointReward);
+        userGamificationStatRepository.save(stat);
     }
 }
