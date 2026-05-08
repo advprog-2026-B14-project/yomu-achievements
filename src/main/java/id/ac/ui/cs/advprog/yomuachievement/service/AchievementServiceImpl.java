@@ -87,6 +87,24 @@ public class AchievementServiceImpl implements AchievementService {
         }
     }
 
+    @Override
+    public void pinAchievement(String userId, UUID achievementId, Integer pinOrder) {
+        if (pinOrder == null || pinOrder < 1 || pinOrder > 3) {
+            throw new IllegalArgumentException("Pin order harus antara 1 dan 3");
+        }
+
+        UserAchievement userRecord = userAchievementRepository.findByUserIdAndAchievementId(userId, achievementId)
+                .orElseThrow(() -> new RuntimeException("Record UserAchievement tidak ditemukan"));
+
+        if (!userRecord.getIsUnlocked()) {
+            throw new RuntimeException("Hanya achievement yang sudah terbuka yang bisa di-pin");
+        }
+
+        userRecord.setIsPinned(true);
+        userRecord.setPinOrder(pinOrder);
+        userAchievementRepository.save(userRecord);
+    }
+
     /**
      * Helper method to handle Point Distribution and Leveling logic.
      */
