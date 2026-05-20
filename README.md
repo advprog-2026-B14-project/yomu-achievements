@@ -270,9 +270,108 @@ classDiagram
 
 ---
 
-## Performance & System Quality
+## Performa & Kualitas Sistem
 
-This section documents the measurable performance improvements, load test results, and observability setup implemented in this microservice.
+Bagian ini mendokumentasikan peningkatan performa yang terukur, hasil load testing, dan pengaturan observability yang diimplementasikan pada microservice ini.
+
+---
+
+### 1. Optimasi Performa: Menyelesaikan Masalah N+1 Query
+
+**N+1 query problem** adalah anti-pattern umum pada JPA, di mana pengambilan daftar N record memicu N query database tambahan — satu per record. Masalah ini sengaja didemonstrasikan dan diselesaikan pada method `calculateTotalClanPoints`.
+
+#### Penyebab Masalah
+Implementasi naif (V1) mengiterasi daftar `userId` dan memanggil `repository.findById(userId)` di dalam loop. Untuk klan dengan 1.000 pengguna, ini menghasilkan **1.001 statement SELECT terpisah** ke database.
+
+#### Solusi
+Implementasi yang dioptimalkan (V2) mengganti seluruh loop dengan satu query agregat JPQL menggunakan `SUM(...) WHERE userId IN (...)`. Ini mengurangi **1.001 round-trip ke database menjadi hanya 1**, terlepas dari ukuran klan.
+
+```java
+// V2: Satu query agregat SQL — 1 pemanggilan DB untuk berapapun jumlah pengguna
+@Query("SELECT COALESCE(SUM(s.totalPoints), 0) FROM UserGamificationStat s WHERE s.userId IN :userIds")
+Integer sumTotalPointsByUserIds(@Param("userIds") List<String> userIds);
+```
+
+#### Hasil Benchmark
+
+| Metrik | V1 (N+1 — Lambat) | V2 (Optimized) | Peningkatan |
+|---|---|---|---|
+| Waktu Eksekusi (1000 pengguna) | **172,7 detik** | **0,6 detik** | **~99% lebih cepat** |
+| Round-trip ke DB | 1.001 | 1 | -99,9% |
+| Skalabilitas | Linear (O(N)) | Konstan (O(1)) | ✅ |
+
+**V1 — Bottleneck N+1 (Lambat):**
+
+![Benchmark Query N+1 — Lambat](assets/slow.png)
+
+**V2 — Query Tunggal yang Dioptimalkan (Cepat):**
+
+![Benchmark Query Optimized — Cepat](assets/optimize.png)
+
+---
+
+### 2. Load Testing (k6)
+
+Load test dilakukan menggunakan [k6](https://k6.io/) untuk memverifikasi bahwa endpoint yang telah dioptimalkan dapat menangani traffic tinggi secara bersamaan tanpa mengalami degradasi performa.
+
+#### Konfigurasi Pengujian
+
+| Parameter | Nilai |
+|---|---|
+| Tool | k6 |
+| Target Endpoint | `GET /api/benchmark/clan-points/optimized` |
+| Virtual Users (VUs) | **100 VU secara bersamaan** |
+| Durasi | **30 detik** (steady-state) |
+| Threshold: Latensi P95 | Harus **< 200ms** |
+| Threshold: Error Rate | Harus **< 1%** |
+
+#### Hasil Pengujian
+
+| Metrik | Hasil | Threshold | Status |
+|---|---|---|---|
+| Total Request | **3.325** | — | ✅ |
+| Request/detik | ~110 req/s | — | ✅ |
+| Latensi P95 | < 200ms | < 200ms | ✅ LULUS |
+| Error Rate | **0,00%** | < 1% | ✅ LULUS |
+
+Semua threshold yang dikonfigurasi **terpenuhi** — endpoint yang dioptimalkan menangani 100 pengguna bersamaan dengan nol error dan latensi P95 di bawah 200ms.
+
+**Ringkasan Load Test k6:**
+
+![Hasil Load Test k6](assets/grafanak6.png)
+
+---
+
+### 3. Observability — Sentry APM
+
+[Sentry](https://sentry.io/) diintegrasikan ke dalam microservice ini untuk **Application Performance Monitoring (APM)** secara real-time, yang menyediakan:
+
+- **Transaction Tracing:** Setiap HTTP request yang masuk ditangkap sebagai transaksi Sentry, menampilkan flame graph lengkap dari waktu yang dihabiskan di setiap lapisan (controller → service → repository → DB).
+- **APDEX Score:** Dihitung secara otomatis berdasarkan threshold kepuasan yang dikonfigurasi (T = 500ms). Request yang lebih cepat dari T adalah *Satisfied*; antara T dan 4T adalah *Tolerating*; di atas 4T adalah *Frustrated*.
+- **Deteksi Query Lambat:** Query database yang melebihi `slow-request-threshold` (500ms) secara otomatis ditandai dan dilampirkan ke transaksi induknya di dashboard Sentry.
+- **100% Sampling:** Selama pengembangan, `traces-sample-rate=1.0` menangkap setiap transaksi. Nilai ini dapat diturunkan menjadi `0.2` di lingkungan produksi untuk mengurangi volume data.
+
+**Dashboard Sentry APM:**
+
+![Dashboard Sentry APM](assets/sentry.png)
+
+#### Konfigurasi
+
+Sentry diaktifkan dengan mengatur `SENTRY_DSN` di file `.env` Anda:
+
+```properties
+# application.properties
+sentry.dsn=${SENTRY_DSN}
+sentry.traces-sample-rate=1.0
+sentry.enable-db-query-tracing=true
+sentry.slow-request-threshold=500
+```
+
+```env
+# .env
+SENTRY_DSN=https://<your-key>@o<org-id>.ingest.sentry.io/<project-id>
+```
+
 
 ---
 
