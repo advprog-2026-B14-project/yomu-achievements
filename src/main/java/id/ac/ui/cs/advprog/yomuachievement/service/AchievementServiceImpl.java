@@ -213,6 +213,66 @@ public class AchievementServiceImpl implements AchievementService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * ========================================================================
+     * PERFORMANCE V1: N+1 Query Problem (SLOW)
+     * ========================================================================
+     * Scenario: calculate the total combined points of a "clan" of users.
+     *
+     * This method first fetches all stat records with findAll() (Query #1),
+     * then filters in Java, which in a real app would be replaced by iterating
+     * a list of clanUserIds and calling findById() for EACH user — triggering
+     * N additional SELECT queries (one per user).
+     *
+     * SQL executed: 1 (get all stats) + N (one per userId in clanUserIds)
+     * Total DB round-trips: N + 1
+     * ========================================================================
+     */
+    @Override
+    public int calculateTotalClanPointsSlow(List<String> clanUserIds) {
+        int totalPoints = 0;
+
+        // N+1 PROBLEM: for each userId in the clan, we make a SEPARATE DB call.
+        // With 100 users → 100 individual SELECT queries to user_gamification_stats.
+        for (String userId : clanUserIds) {
+            // ↓ This fires: SELECT * FROM user_gamification_stats WHERE user_id = ?
+            // one separate round-trip per user!
+            UserGamificationStat stat = userGamificationStatRepository.findById(userId)
+                    .orElse(null);
+
+            if (stat != null) {
+                totalPoints += stat.getTotalPoints();
+            }
+        }
+
+        return totalPoints;
+    }
+
+    /**
+     * ========================================================================
+     * PERFORMANCE V2: Single Optimized Aggregate Query (FAST)
+     * ========================================================================
+     * Solves the N+1 problem by delegating the aggregation to the DATABASE.
+     * The JPQL query in UserGamificationStatRepository executes:
+     *
+     *   SELECT COALESCE(SUM(s.total_points), 0)
+     *   FROM user_gamification_stats s
+     *   WHERE s.user_id IN (?, ?, ?, ...)
+     *
+     * SQL executed: 1 query with IN clause, regardless of clan size.
+     * Total DB round-trips: 1
+     *
+     * Expected speedup: >50% for clans of even 10+ users, and scales
+     * proportionally — 100 users → ~100x fewer DB calls.
+     * ========================================================================
+     */
+    @Override
+    public int calculateTotalClanPointsOptimized(List<String> clanUserIds) {
+        // Single DB round-trip: SELECT SUM(...) WHERE user_id IN (...)
+        Integer total = userGamificationStatRepository.sumTotalPointsByUserIds(clanUserIds);
+        return total != null ? total : 0;
+    }
+
     @Override
     @Scheduled(cron = "0 0 0 * * ?")
     public void resetAllDailyMissions() {

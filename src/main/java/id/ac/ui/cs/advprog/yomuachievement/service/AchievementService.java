@@ -14,4 +14,18 @@ public interface AchievementService {
     List<PinnedAchievementDto> getUnlockedAchievements(String userId);
     UserProfileResponse getUserProfile(String userId);
     void resetAllDailyMissions();
+
+    /**
+     * PERFORMANCE V1 (Slow): Demonstrates the N+1 query anti-pattern.
+     * Calculates total combined points for a group of users (a "clan"),
+     * but fetches each user's stats in a separate DB round-trip.
+     */
+    int calculateTotalClanPointsSlow(List<String> clanUserIds);
+
+    /**
+     * PERFORMANCE V2 (Optimized): Solves the N+1 problem.
+     * Calculates total combined points for a "clan" using a single
+     * SQL aggregate query — 1 DB call regardless of clan size.
+     */
+    int calculateTotalClanPointsOptimized(List<String> clanUserIds);
 }
