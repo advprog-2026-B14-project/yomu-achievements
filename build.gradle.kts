@@ -49,6 +49,9 @@ dependencies {
 
     // In-memory database for testing
     testImplementation("com.h2database:h2")
+
+    // Sentry — Application Performance Monitoring & APDEX tracking
+    implementation("io.sentry:sentry-spring-boot-starter-jakarta:7.15.0")
 }
 
 tasks.test {
