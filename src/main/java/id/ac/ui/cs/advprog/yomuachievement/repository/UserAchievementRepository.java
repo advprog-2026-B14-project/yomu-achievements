@@ -14,4 +14,6 @@ public interface UserAchievementRepository extends JpaRepository<UserAchievement
     Optional<UserAchievement> findByUserIdAndAchievementId(String userId, UUID achievementId);
     
     List<UserAchievement> findByUserIdAndIsPinnedTrueOrderByPinOrderAsc(String userId);
+    
+    List<UserAchievement> findByUserIdAndIsUnlockedTrue(String userId);
 }

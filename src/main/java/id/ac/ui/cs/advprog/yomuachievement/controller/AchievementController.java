@@ -1,17 +1,21 @@
 package id.ac.ui.cs.advprog.yomuachievement.controller;
 
 import id.ac.ui.cs.advprog.yomuachievement.dto.PinAchievementRequest;
+import id.ac.ui.cs.advprog.yomuachievement.dto.PinnedAchievementDto;
 import id.ac.ui.cs.advprog.yomuachievement.dto.UserProfileResponse;
+import id.ac.ui.cs.advprog.yomuachievement.model.Achievement;
 import id.ac.ui.cs.advprog.yomuachievement.service.AchievementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api")
+@CrossOrigin(origins = "*")
 public class AchievementController {
 
     @Autowired
@@ -48,5 +52,17 @@ public class AchievementController {
     @GetMapping("/achievements/profile/{userId}")
     public ResponseEntity<UserProfileResponse> getUserProfile(@PathVariable String userId) {
         return ResponseEntity.ok(achievementService.getUserProfile(userId));
+    }
+
+    // Endpoint untuk Get All Master Achievements
+    @GetMapping("/achievements/master")
+    public ResponseEntity<List<Achievement>> getAllMasterAchievements() {
+        return ResponseEntity.ok(achievementService.findAllAchievements());
+    }
+
+    // Endpoint untuk Get Unlocked Achievements (untuk dropdown pin profil)
+    @GetMapping("/achievements/unlocked/{userId}")
+    public ResponseEntity<List<PinnedAchievementDto>> getUnlockedAchievements(@PathVariable String userId) {
+        return ResponseEntity.ok(achievementService.getUnlockedAchievements(userId));
     }
 }

@@ -30,7 +30,7 @@ public class UserDailyMission {
     @Column(name = "is_completed")
     private Boolean isCompleted = false;
 
-    @Column(name = "tanggal_selesai")
+    @Column(name = "tanggal")
     private LocalDateTime tanggalSelesai;
 
     public UserDailyMission() {}

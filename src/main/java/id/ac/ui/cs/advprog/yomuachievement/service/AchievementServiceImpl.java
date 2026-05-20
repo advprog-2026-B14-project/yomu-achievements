@@ -157,6 +157,22 @@ public class AchievementServiceImpl implements AchievementService {
     }
 
     @Override
+    public List<PinnedAchievementDto> getUnlockedAchievements(String userId) {
+        List<UserAchievement> unlocked = userAchievementRepository.findByUserIdAndIsUnlockedTrue(userId);
+
+        return unlocked.stream()
+                .map(ua -> PinnedAchievementDto.builder()
+                        .id(ua.getAchievement().getId())
+                        .nama(ua.getAchievement().getNama())
+                        .deskripsi(ua.getAchievement().getDeskripsi())
+                        .milestoneTarget(ua.getAchievement().getMilestoneTarget())
+                        .poinReward(ua.getAchievement().getPoinReward())
+                        .pinOrder(ua.getPinOrder())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Override
     @Scheduled(cron = "0 0 0 * * ?")
     public void resetAllDailyMissions() {
         userDailyMissionRepository.deleteAll();
