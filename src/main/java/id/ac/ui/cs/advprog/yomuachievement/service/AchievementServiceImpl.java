@@ -2,17 +2,32 @@ package id.ac.ui.cs.advprog.yomuachievement.service;
 
 import id.ac.ui.cs.advprog.yomuachievement.dto.PinnedAchievementDto;
 import id.ac.ui.cs.advprog.yomuachievement.dto.UserProfileResponse;
+import id.ac.ui.cs.advprog.yomuachievement.event.MissionCompletedEvent;
 import id.ac.ui.cs.advprog.yomuachievement.model.*;
 import id.ac.ui.cs.advprog.yomuachievement.repository.*;
+import id.ac.ui.cs.advprog.yomuachievement.strategy.PointCalculationStrategy;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+/**
+ * Main service implementation for the Achievements & Gamification module.
+ *
+ * This class demonstrates three design patterns working together:
+ *   1. BUILDER PATTERN    — All DTO construction uses the Lombok @Builder pattern.
+ *   2. STRATEGY PATTERN   — Point calculation is delegated to a PointCalculationStrategy.
+ *   3. OBSERVER PATTERN   — Mission completion fires a Spring ApplicationEvent (loose coupling).
+ */
 @Service
 public class AchievementServiceImpl implements AchievementService {
 
@@ -30,6 +45,19 @@ public class AchievementServiceImpl implements AchievementService {
 
     @Autowired
     private UserGamificationStatRepository userGamificationStatRepository;
+
+    // --- Strategy Pattern: Inject both strategies; choose dynamically at runtime ---
+    @Autowired
+    @Qualifier("standardPointStrategy")
+    private PointCalculationStrategy standardStrategy;
+
+    @Autowired
+    @Qualifier("weekendBonusPointStrategy")
+    private PointCalculationStrategy weekendBonusStrategy;
+
+    // --- Observer Pattern: Publisher for Spring Application Events ---
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
 
     @Override
     public List<Achievement> findAllAchievements() {
@@ -53,12 +81,12 @@ public class AchievementServiceImpl implements AchievementService {
 
         if (!userRecord.getIsUnlocked()) {
             userRecord.setCurrentProgress(userRecord.getCurrentProgress() + 1);
-            
-            if (userRecord.getCurrentProgress() >= master.getMilestoneTarget()) { 
+
+            if (userRecord.getCurrentProgress() >= master.getMilestoneTarget()) {
                 userRecord.setIsUnlocked(true);
                 userRecord.setTanggalDidapat(LocalDateTime.now());
-                
-                // Distribusi Poin & Leveling
+
+                // Strategy Pattern: select correct strategy at runtime
                 distributePointsAndLevelUp(userId, master.getPoinReward());
             }
             userAchievementRepository.save(userRecord);
@@ -82,13 +110,22 @@ public class AchievementServiceImpl implements AchievementService {
 
         if (!userRecord.getIsCompleted()) {
             userRecord.setProgress(userRecord.getProgress() + 1);
-            
-            if (userRecord.getProgress() >= master.getMilestoneTarget()) { 
+
+            if (userRecord.getProgress() >= master.getMilestoneTarget()) {
                 userRecord.setIsCompleted(true);
                 userRecord.setTanggalSelesai(LocalDateTime.now());
 
-                // Distribusi Poin & Leveling
+                // Strategy Pattern: select correct strategy at runtime
                 distributePointsAndLevelUp(userId, master.getPoinReward());
+
+                // Observer Pattern: publish the event — the service does NOT directly
+                // call the Social Module. It just fires an event and forgets.
+                eventPublisher.publishEvent(new MissionCompletedEvent(
+                        this,
+                        userId,
+                        missionId,
+                        master.getNamaMisi()
+                ));
             }
             userDailyMissionRepository.save(userRecord);
         }
@@ -137,6 +174,8 @@ public class AchievementServiceImpl implements AchievementService {
 
         List<UserAchievement> pinned = userAchievementRepository.findByUserIdAndIsPinnedTrueOrderByPinOrderAsc(userId);
 
+        // Builder Pattern: construct each DTO using the Lombok builder — explicit, readable,
+        // and safe (no positional constructor args that can silently be in wrong order).
         List<PinnedAchievementDto> pinnedDtos = pinned.stream()
                 .map(ua -> PinnedAchievementDto.builder()
                         .id(ua.getAchievement().getId())
@@ -148,6 +187,7 @@ public class AchievementServiceImpl implements AchievementService {
                         .build())
                 .collect(Collectors.toList());
 
+        // Builder Pattern: construct the top-level response DTO
         return UserProfileResponse.builder()
                 .userId(userId)
                 .level(stat.getLevel())
@@ -160,6 +200,7 @@ public class AchievementServiceImpl implements AchievementService {
     public List<PinnedAchievementDto> getUnlockedAchievements(String userId) {
         List<UserAchievement> unlocked = userAchievementRepository.findByUserIdAndIsUnlockedTrue(userId);
 
+        // Builder Pattern: consistent, type-safe DTO construction
         return unlocked.stream()
                 .map(ua -> PinnedAchievementDto.builder()
                         .id(ua.getAchievement().getId())
@@ -179,10 +220,27 @@ public class AchievementServiceImpl implements AchievementService {
     }
 
     /**
-     * Helper method to handle Point Distribution and Leveling logic.
+     * Helper method that selects the correct PointCalculationStrategy at runtime,
+     * then delegates the actual calculation to it.
+     *
+     * STRATEGY PATTERN:
+     * - On weekends (Saturday/Sunday) → WeekendBonusPointStrategy (2x points).
+     * - On weekdays → StandardPointStrategy (1x points).
+     *
+     * This replaces what was previously a hardcoded `stat.addPoints(pointReward)` call.
+     * New strategies (e.g., HolidayBonusStrategy) can be added without touching this class.
      */
-    private void distributePointsAndLevelUp(String userId, Integer pointReward) {
-        if (pointReward == null) pointReward = 0;
+    private void distributePointsAndLevelUp(String userId, Integer basePointReward) {
+        if (basePointReward == null) basePointReward = 0;
+
+        // Select strategy based on the current day of the week
+        DayOfWeek today = LocalDate.now().getDayOfWeek();
+        PointCalculationStrategy strategy = (today == DayOfWeek.SATURDAY || today == DayOfWeek.SUNDAY)
+                ? weekendBonusStrategy
+                : standardStrategy;
+
+        // Delegate calculation to the selected strategy
+        int finalPoints = strategy.calculate(basePointReward);
 
         UserGamificationStat stat = userGamificationStatRepository.findById(userId)
                 .orElseGet(() -> {
@@ -191,7 +249,7 @@ public class AchievementServiceImpl implements AchievementService {
                     return newStat;
                 });
 
-        stat.addPoints(pointReward);
+        stat.addPoints(finalPoints);
         userGamificationStatRepository.save(stat);
     }
 }
